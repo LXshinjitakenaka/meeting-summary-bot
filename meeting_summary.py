@@ -289,42 +289,16 @@ def build_blocks(events: list, week_start: datetime, week_end: datetime) -> list
 # ──────────────────────────────────────────────
 
 def get_dm_channel_id() -> str:
-    """自分の DM チャンネル ID を取得する。
-    環境変数 SLACK_MY_CHANNEL_ID が設定されていればそれを使う（推奨）。
-    なければ users.lookupByEmail → conversations.open で取得を試みる。
-    """
-    # 直接指定が最もシンプル（STEP 2 で確認方法を案内）
     channel_id = os.environ.get("SLACK_MY_CHANNEL_ID")
     if channel_id:
-        return channel_id
-
-    # メールアドレスから Slack ユーザー ID を取得
-    r = requests.get(
-        "https://slack.com/api/users.lookupByEmail",
-        headers={"Authorization": f"Bearer {SLACK_TOKEN}"},
-        params={"email": MY_EMAIL},
-        timeout=10,
-    )
-    data = r.json()
-    if not data.get("ok"):
-        raise ValueError(
-            f"Slack ユーザーの取得に失敗: {data.get('error')}\n"
-            "SLACK_MY_CHANNEL_ID 環境変数に DM チャンネル ID を直接設定してください。"
+        requests.post(
+            "https://slack.com/api/conversations.open",
+            headers={"Authorization": f"Bearer {SLACK_TOKEN}", "Content-Type": "application/json"},
+            json={"channel": channel_id},
+            timeout=10,
         )
-    user_id = data["user"]["id"]
-
-    # ユーザー ID から DM チャンネルを開く
-    r2 = requests.post(
-        "https://slack.com/api/conversations.open",
-        headers={"Authorization": f"Bearer {SLACK_TOKEN}", "Content-Type": "application/json"},
-        json={"users": user_id},
-        timeout=10,
-    )
-    data2 = r2.json()
-    if not data2.get("ok"):
-        raise ValueError(f"DM チャンネルのオープンに失敗: {data2.get('error')}")
-    return data2["channel"]["id"]
-
+        return channel_id
+    raise ValueError("SLACK_MY_CHANNEL_ID が設定されていません")
 
 def post_dm(blocks: list):
     channel = get_dm_channel_id()
