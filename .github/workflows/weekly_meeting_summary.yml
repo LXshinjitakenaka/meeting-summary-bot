@@ -1,0 +1,45 @@
+name: Weekly Meeting Summary (Friday Night)
+
+on:
+  schedule:
+    - cron: "0 12 * * 5"
+  workflow_dispatch:
+    inputs:
+      week_start:
+        description: "集計開始日 (YYYY-MM-DD)　空欄なら今週月曜"
+        required: false
+        default: ""
+      week_end:
+        description: "集計終了日 (YYYY-MM-DD)　空欄なら今週土曜"
+        required: false
+        default: ""
+
+jobs:
+  post-summary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run meeting summary
+        env:
+          MY_EMAIL: ${{ secrets.MY_EMAIL }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_MY_CHANNEL_ID: ${{ secrets.SLACK_MY_CHANNEL_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          CALENDAR_ID: ${{ secrets.CALENDAR_ID }}
+        run: |
+          if [ -n "${{ github.event.inputs.week_start }}" ]; then
+            python meeting_summary.py \
+              "${{ github.event.inputs.week_start }}" \
+              "${{ github.event.inputs.week_end }}"
+          else
+            python meeting_summary.py
+          fi
