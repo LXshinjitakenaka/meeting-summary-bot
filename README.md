@@ -1,11 +1,11 @@
 # Meeting Summary Bot
 
-毎週金曜 21:00 に「今週の会議実績」を自分の Slack DM へ自動投稿するボット。
-月次・カスタム期間にも対応。全会議リストはスレッドで確認できます。
+毎週金曜 21:00 に今週の会議実績を自分の Slack DM へ自動投稿するボット。
+月次・任意期間にも対応。全会議リストはスレッドで確認できます。
 
 ---
 
-## 投稿イメージ
+## 投稿のイメージ
 
 **メインDM（サマリー）**
 ```
@@ -19,9 +19,8 @@
 👤 1on1      █████░░░░░░░░░░░  5h 25m  13件  23%
 📢 全社      ██░░░░░░░░░░░░░░  2h 15m   3件   9%
 
-🗓 曜日別内訳
-  3/23(月)  7h 30m  14件
-  3/24(火)  2h 00m   3件
+📆 週別内訳（月次のみ表示）
+  3/2〜3/6   20h 25m  29件
   ...
 
 💬 全会議リストはこのメッセージのスレッドをご確認ください
@@ -35,20 +34,23 @@
   • 3/23(月) 08:30  かな・いた・たけ定例  30m
   • 3/23(月) 09:00  Daily-Checkin  30m
   ...
-
-🤝 社外  6h 00m / 10件
-  ...
 ```
 
 ---
 
 ## 対応する期間タイプ
 
-| period_type | 内容 | 自動実行 |
-|-------------|------|---------|
-| `weekly` | 今週月〜金 | 毎週金曜 21:00 JST |
-| `monthly` | 今月1日〜末日（週別内訳つき） | 毎月最終日 21:00 JST |
-| `custom` | 任意の開始日・終了日を指定 | 手動のみ |
+| period_type | 内容 | 日付入力 | 自動実行 |
+|-------------|------|---------|---------|
+| `weekly` | 今週月〜金 | 不要 | 毎週金曜 21:00 JST |
+| `monthly` | 今月1日〜末日（週別内訳つき） | 不要 | 毎月最終日 21:00 JST |
+| `weekly` / `monthly` / `custom` | 任意の期間 | **start_date・end_date を入力** | 手動のみ |
+
+### 日付を指定して実行する場合の注意
+
+- `start_date` / `end_date` を入力すると、`period_type` に関わらずその期間で集計されます
+- **終了日は「翌日の日付」を入力してください**
+  - 例：3/23（月）〜3/27（金）を集計したい場合 → `end_date` に `2026-03-28` を入力
 
 ---
 
@@ -96,6 +98,11 @@
 1. ブラウザ版 Slack（app.slack.com）で自分の名前をクリックして DM を開く
 2. URL の `D` で始まる部分（例: `D01234ABCDE`）をコピー
 
+**Bot を自分の DM で開く（必須）:**
+1. Slack 検索で「Meeting Summary Bot」を検索
+2. 「メッセージ」をクリックして DM を開く
+※ この操作をしないと投稿が届きません
+
 ---
 
 ### STEP 3｜GitHub Secrets を設定（約10分）
@@ -109,34 +116,17 @@
 | `SLACK_USER_ID` | `U` で始まる Slack ユーザー ID |
 | `SLACK_MY_CHANNEL_ID` | `D` で始まる DM チャンネル ID |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | STEP 1 でダウンロードした JSON の中身全体 |
-| `CALENDAR_ID` | 自分のメールアドレス（例: `yourname@company.com`） |
+| `CALENDAR_ID` | 自分のメールアドレス（例: `yourname@lxdesign.me`） |
+
+> ⚠️ `CALENDAR_ID` は `primary` ではなく**自分のメールアドレス**を設定してください。`primary` だとイベントが0件になります。
 
 ---
 
-### STEP 4｜リポジトリにプッシュ
-
-```bash
-git init
-git add .
-git commit -m "Add meeting summary bot"
-git remote add origin https://github.com/YOUR_NAME/meeting-summary-bot.git
-git push -u origin main
-```
-
----
-
-### STEP 5｜動作確認（手動実行）
+### STEP 4｜動作確認（手動実行）
 
 1. GitHub → **「Actions」タブ**
 2. **「Meeting Summary Bot」** を選択
 3. **「Run workflow」** → 期間タイプと日付を入力して実行
-
-| やりたいこと | `period_type` | 追加入力 |
-|------------|--------------|---------|
-| 今週分を今すぐ確認 | `weekly` | なし |
-| 今月分をまとめて確認 | `monthly` | なし |
-| 特定期間を確認 | `custom` | 開始日・終了日（YYYY-MM-DD） |
-
 4. Slack DM に届いたら成功 🎉
 
 ---
@@ -203,12 +193,25 @@ export SLACK_BOT_TOKEN="xoxb-..."
 export SLACK_USER_ID="U01234ABCDE"
 export CALENDAR_ID="your@email.com"
 
-# 週次
+# 今週分（自動計算）
 python meeting_summary.py weekly
 
-# 月次
+# 今月分（自動計算）
 python meeting_summary.py monthly
 
-# 任意期間
-python meeting_summary.py custom 2026-03-01 2026-04-01
+# 任意期間（終了日は翌日を指定）
+python meeting_summary.py weekly 2026-03-23 2026-03-28
 ```
+
+---
+
+## トラブルシューティング
+
+| 症状 | 対処法 |
+|------|--------|
+| Slackに届かない | Slack で「Meeting Summary Bot」とのDMを一度開いているか確認 |
+| イベント取得が0件 | `CALENDAR_ID` にメールアドレスが設定されているか確認（`primary` は不可） |
+| 期間が今週になってしまう | `start_date` / `end_date` の欄に日付を入力しているか確認 |
+| Actionsが赤くなる | ログの「Run meeting summary」をクリックしてエラー内容を確認 |
+| Secretsを間違えた | 該当Secretの鉛筆マークをクリックして値を入力し直す |
+| 60日以上経つとActionsが止まる | GitHub から届くメールの「Re-enable workflows」をクリック |
