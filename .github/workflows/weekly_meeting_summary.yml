@@ -2,16 +2,13 @@ name: Meeting Summary Bot
 
 on:
   schedule:
-    # 毎週金曜 21:00 JST（= UTC 12:00）→ 週次レポート
     - cron: "0 12 * * 5"
-    # 毎月最終日 21:00 JST（= UTC 12:00）→ 月次レポート
-    # ※ GitHub Actions は "L" 非対応のため 28〜31日を全部指定してスクリプト側で判定
     - cron: "0 12 28-31 * *"
 
   workflow_dispatch:
     inputs:
       period_type:
-        description: "期間タイプ"
+        description: "期間タイプ（weekly=今週自動 / monthly=今月自動 / custom=日付指定）"
         required: true
         default: "weekly"
         type: choice
@@ -19,12 +16,12 @@ on:
           - weekly
           - monthly
           - custom
-      custom_start:
-        description: "【custom用】開始日 (YYYY-MM-DD)　例: 2026-03-01"
+      start_date:
+        description: "開始日 (YYYY-MM-DD)　例: 2026-03-23　※日付を入れると period_type に関わらず優先されます"
         required: false
         default: ""
-      custom_end:
-        description: "【custom用】終了日 (YYYY-MM-DD)　例: 2026-03-31"
+      end_date:
+        description: "終了日 (YYYY-MM-DD)　例: 2026-03-28　※翌日の日付を入れてください（例: 金曜まで → 3/28 ではなく 3/29）"
         required: false
         default: ""
 
@@ -50,7 +47,6 @@ jobs:
         id: period
         run: |
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            # 月末判定: 翌日が1日ならば月次、それ以外は週次
             TOMORROW=$(date -d "+1 day" +%d)
             if [ "$TOMORROW" = "01" ]; then
               echo "type=monthly" >> $GITHUB_OUTPUT
@@ -72,11 +68,11 @@ jobs:
           PERIOD_TYPE: ${{ steps.period.outputs.type }}
         run: |
           PERIOD="${{ steps.period.outputs.type }}"
-          START="${{ github.event.inputs.custom_start }}"
-          END="${{ github.event.inputs.custom_end }}"
+          START="${{ github.event.inputs.start_date }}"
+          END="${{ github.event.inputs.end_date }}"
 
-          if [ "$PERIOD" = "custom" ] && [ -n "$START" ] && [ -n "$END" ]; then
-            python meeting_summary.py custom "$START" "$END"
+          if [ -n "$START" ] && [ -n "$END" ]; then
+            python meeting_summary.py "$PERIOD" "$START" "$END"
           else
             python meeting_summary.py "$PERIOD"
           fi
