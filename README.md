@@ -1,11 +1,13 @@
 # Meeting Summary Bot
 
 毎週金曜 21:00 に「今週の会議実績」を自分の Slack DM へ自動投稿するボット。
+月次・カスタム期間にも対応。全会議リストはスレッドで確認できます。
 
 ---
 
 ## 投稿イメージ
 
+**メインDM（サマリー）**
 ```
 📅 今週の会議実績レポート
 3/23(月)〜3/28(金)
@@ -17,31 +19,49 @@
 👤 1on1      █████░░░░░░░░░░░  5h 25m  13件  23%
 📢 全社      ██░░░░░░░░░░░░░░  2h 15m   3件   9%
 
-📆 曜日別内訳
+🗓 曜日別内訳
   3/23(月)  7h 30m  14件
   3/24(火)  2h 00m   3件
   ...
 
+💬 全会議リストはこのメッセージのスレッドをご確認ください
+```
+
+**スレッドを開くと（カテゴリ別・全会議一覧）**
+```
 📋 全会議リスト（承諾済み・複数人）
+
 🏢 社内定例  9h 45m / 18件
   • 3/23(月) 08:30  かな・いた・たけ定例  30m
   • 3/23(月) 09:00  Daily-Checkin  30m
+  ...
+
+🤝 社外  6h 00m / 10件
   ...
 ```
 
 ---
 
+## 対応する期間タイプ
+
+| period_type | 内容 | 自動実行 |
+|-------------|------|---------|
+| `weekly` | 今週月〜金 | 毎週金曜 21:00 JST |
+| `monthly` | 今月1日〜末日（週別内訳つき） | 毎月最終日 21:00 JST |
+| `custom` | 任意の開始日・終了日を指定 | 手動のみ |
+
+---
+
 ## セットアップ手順
 
-### STEP 1｜Google Cloud — サービスアカウント作成（約 30 分）
+### STEP 1｜Google Cloud — サービスアカウント作成（約30分）
 
 1. [Google Cloud Console](https://console.cloud.google.com/) を開く
-2. プロジェクトを選択（なければ新規作成）
-3. **「APIとサービス」→「ライブラリ」** で `Google Calendar API` を検索 → 有効化
-4. **「APIとサービス」→「認証情報」→「認証情報を作成」→「サービスアカウント」**
-5. 名前（例: `meeting-summary-bot`）を入力して作成
-6. 作成後、**「キー」タブ → 「鍵を追加」→「JSON」** でキーをダウンロード
-7. ダウンロードした JSON の**中身全体**をコピーしておく（STEP 3 で使用）
+2. **「APIとサービス」→「ライブラリ」** で `Google Calendar API` を検索 → 有効化
+3. **「APIとサービス」→「認証情報」→「認証情報を作成」→「サービスアカウント」**
+4. 名前（例: `meeting-summary-bot`）を入力して作成
+5. 作成後、**「キー」タブ → 「鍵を追加」→「JSON」** でキーをダウンロード
+6. ダウンロードした JSON の**中身全体**をコピーしておく（STEP 3 で使用）
 
 **カレンダーへの共有設定:**
 1. Google カレンダー → 自分のカレンダーの「…」→「設定と共有」
@@ -50,37 +70,46 @@
 
 ---
 
-### STEP 2｜Slack App 作成（約 15 分）
+### STEP 2｜Slack App 作成（約15分）
 
 1. [Slack API](https://api.slack.com/apps) → **「Create New App」→「From scratch」**
-2. アプリ名（例: `Meeting Bot`）とワークスペースを選択
-3. 左メニュー **「OAuth & Permissions」**
-4. **「Scopes」→「Bot Token Scopes」** に以下を追加:
-   - `chat:write`
-   - `im:write`
-   - `users:read`
-   - `users:read.email`
-5. **「Install to Workspace」** → 許可
-6. **Bot User OAuth Token**（`xoxb-...`）をコピー
+2. アプリ名（例: `Meeting Summary Bot`）とワークスペースを選択
+3. 左メニュー **「OAuth & Permissions」→「Bot Token Scopes」** に以下を追加:
+
+| スコープ | 用途 |
+|---------|------|
+| `chat:write` | メッセージを送信する |
+| `im:write` | DM チャンネルを開く |
+| `im:read` | DM チャンネルを読む |
+| `im:history` | DM の履歴にアクセスする |
+| `users:read` | ユーザー情報を取得する |
+| `users:read.email` | メールアドレスでユーザーを検索する |
+
+4. **「Install to Workspace」** → 許可
+5. **Bot User OAuth Token**（`xoxb-...`）をコピー
+
+**自分の Slack ユーザー ID を調べる:**
+1. Slack で自分のプロフィールを開く
+2. 「…」→「メンバー ID をコピー」→ `U` で始まる文字列
 
 **自分の DM チャンネル ID を調べる:**
-1. Slack で自分の名前をクリック → DM を開く
-2. ブラウザの URL を確認: `https://app.slack.com/client/T.../D...`
-3. `D` で始まる部分が Channel ID（例: `D01234ABCDE`）
+1. ブラウザ版 Slack（app.slack.com）で自分の名前をクリックして DM を開く
+2. URL の `D` で始まる部分（例: `D01234ABCDE`）をコピー
 
 ---
 
-### STEP 3｜GitHub Secrets を設定（約 10 分）
+### STEP 3｜GitHub Secrets を設定（約10分）
 
 リポジトリの **「Settings」→「Secrets and variables」→「Actions」→「New repository secret」**
 
 | Secret 名 | 値 |
 |-----------|-----|
-| `MY_EMAIL` | あなたの Google アカウントのメールアドレス |
+| `MY_EMAIL` | あなたの Google カレンダーのメールアドレス |
 | `SLACK_BOT_TOKEN` | `xoxb-...` で始まる Bot Token |
+| `SLACK_USER_ID` | `U` で始まる Slack ユーザー ID |
 | `SLACK_MY_CHANNEL_ID` | `D` で始まる DM チャンネル ID |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | STEP 1 でダウンロードした JSON の中身全体 |
-| `CALENDAR_ID` | `primary`（デフォルト） |
+| `CALENDAR_ID` | 自分のメールアドレス（例: `yourname@company.com`） |
 
 ---
 
@@ -99,13 +128,34 @@ git push -u origin main
 ### STEP 5｜動作確認（手動実行）
 
 1. GitHub → **「Actions」タブ**
-2. **「Weekly Meeting Summary (Friday Night)」** を選択
-3. **「Run workflow」** → 期間を入力して実行
-   - `week_start`: `2026-03-23`
-   - `week_end`: `2026-03-28`
-4. Slack DM に届けば成功 🎉
+2. **「Meeting Summary Bot」** を選択
+3. **「Run workflow」** → 期間タイプと日付を入力して実行
 
-以後、毎週金曜 21:00 JST に今週分が自動投稿されます。
+| やりたいこと | `period_type` | 追加入力 |
+|------------|--------------|---------|
+| 今週分を今すぐ確認 | `weekly` | なし |
+| 今月分をまとめて確認 | `monthly` | なし |
+| 特定期間を確認 | `custom` | 開始日・終了日（YYYY-MM-DD） |
+
+4. Slack DM に届いたら成功 🎉
+
+---
+
+## 集計ルール
+
+- **承諾済み（accepted）かつ複数人参加**のイベントのみ対象
+- 以下は除外：移動・ブロック・病院・workingLocation・outOfOffice
+- カテゴリ分類：
+  - **全社**：Daily-Checkin、生徒総会、lx_all メーリングリスト含むもの
+  - **1on1**：タイトルに「1on1」「Shinji /」など特定キーワードを含むもの
+  - **社外**：@lxdesign.me 以外の参加者がいるもの
+  - **社内定例**：上記以外
+
+## % の計算式
+
+```
+カテゴリの合計分数 ÷ 全体の合計分数 × 100（四捨五入）
+```
 
 ---
 
@@ -116,15 +166,31 @@ git push -u origin main
 `.github/workflows/weekly_meeting_summary.yml` の cron を変更:
 
 ```yaml
-# 金曜 20:00 JST = UTC 11:00
+# 例: 金曜 20:00 JST = UTC 11:00
 - cron: "0 11 * * 5"
 ```
 
-[crontab.guru](https://crontab.guru/) で確認できます。
+### 除外タイトルを追加
 
-### 1on1 のキーワードを追加
+`meeting_summary.py` の `SKIP_TITLES` に追記:
 
-`meeting_summary.py` の `CATEGORY_KEYWORDS["1on1"]` に追記してください。
+```python
+SKIP_TITLES = {
+    "移動", "ブロック",
+    "追加したいタイトル",  # ← ここに追加
+}
+```
+
+### 1on1 キーワードを追加
+
+`meeting_summary.py` の `CATEGORY_KEYWORDS["1on1"]` に追記:
+
+```python
+"1on1": [
+    "1on1", "Shinji /",
+    "追加したいキーワード",  # ← ここに追加
+],
+```
 
 ### ローカルテスト
 
@@ -134,7 +200,15 @@ pip install -r requirements.txt
 # credentials.json = サービスアカウント JSON をリネームして同ディレクトリに置く
 export MY_EMAIL="your@email.com"
 export SLACK_BOT_TOKEN="xoxb-..."
-export SLACK_MY_CHANNEL_ID="D01234ABCDE"
+export SLACK_USER_ID="U01234ABCDE"
+export CALENDAR_ID="your@email.com"
 
-python meeting_summary.py 2026-03-23 2026-03-28
+# 週次
+python meeting_summary.py weekly
+
+# 月次
+python meeting_summary.py monthly
+
+# 任意期間
+python meeting_summary.py custom 2026-03-01 2026-04-01
 ```
